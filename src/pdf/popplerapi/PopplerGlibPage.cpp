@@ -1,4 +1,7 @@
 #include "PopplerGlibPage.h"
+#include <poppler.h>
+#include <poppler-page.h>
+#include "cairo.h"
 
 
 PopplerGlibPage::PopplerGlibPage(PopplerPage* page): page(page) {
@@ -77,4 +80,52 @@ auto PopplerGlibPage::findText(std::string& text) -> std::vector<XojPdfRectangle
     g_list_free(matches);
 
     return findings;
+}
+
+auto PopplerGlibPage::selectText(XojPdfRectangle* points) -> std::string {
+    PopplerRectangle rec = {
+        .x1 = points->x1,
+        .y1 = points->y1,
+        .x2 = points->x2,
+        .y2 = points->y2,
+    };
+
+    return poppler_page_get_selected_text(page, POPPLER_SELECTION_GLYPH, &rec);
+}
+
+auto PopplerGlibPage::selectTextInArea(XojPdfRectangle* points) -> std::string {
+    PopplerRectangle rec = {
+        .x1 = points->x1,
+        .y1 = points->y1,
+        .x2 = points->x2,
+        .y2 = points->y2,
+    };
+
+    return poppler_page_get_text_for_area(page, &rec);
+}
+
+auto PopplerGlibPage::selectTextRegion(XojPdfRectangle* rec, gdouble scale) -> std::vector<XojPdfRectangle> {
+    std::vector<XojPdfRectangle> recs;
+
+    PopplerRectangle rec2 = {
+        .x1 = rec->x1,
+        .y1 = rec->y1,
+        .x2 = rec->x2,
+        .y2 = rec->y2,
+    };
+
+    GList* region = poppler_page_get_selection_region(page, 1.0, POPPLER_SELECTION_GLYPH, &rec2);
+
+    GList *l;
+	for (l = region; l; l = g_list_next (l)) {
+		PopplerRectangle *rec = (PopplerRectangle *)l->data;
+        
+        recs.emplace_back(std::min(rec->x1, rec->x2),
+            std::min(rec->y1, rec->y2),
+            std::max(rec->x1, rec->x2),
+            std::max(rec->y1, rec->y2));
+    }
+
+
+    return recs;
 }

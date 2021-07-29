@@ -98,6 +98,9 @@ void ToolHandler::initTools() {
     tools[TOOL_FLOATING_TOOLBOX - TOOL_PEN] = std::make_unique<Tool>("showFloatingToolbox", TOOL_FLOATING_TOOLBOX,
                                                                      Color{0x000000U}, TOOL_CAP_NONE, nullptr);
 
+    tools[TOOL_SELECT_PDF_TEXT - TOOL_PEN] = std::make_unique<Tool>("selectPdfText", TOOL_SELECT_PDF_TEXT, Color{0x000000U},
+                            TOOL_CAP_COLOR | TOOL_CAP_RULER, nullptr);
+
     this->eraserButtonTool = std::make_unique<Tool>(tools[TOOL_HIGHLIGHTER - TOOL_PEN].get());
     this->stylusButton1Tool = std::make_unique<Tool>(tools[TOOL_HIGHLIGHTER - TOOL_PEN].get());
     this->stylusButton2Tool = std::make_unique<Tool>(tools[TOOL_HIGHLIGHTER - TOOL_PEN].get());

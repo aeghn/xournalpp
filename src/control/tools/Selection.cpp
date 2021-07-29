@@ -1,8 +1,12 @@
 #include "Selection.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cairo.h>
 
 #include "model/Layer.h"
+#include "gui/XournalView.h"
+#include "control/Control.h"
 
 Selection::Selection(Redrawable* view) {
     this->view = view;
@@ -284,6 +288,7 @@ auto RegionSelect::finalize(PageRef page) -> bool {
         if (p->x < this->x1Box) {
             this->x1Box = p->x;
         } else if (p->x > this->x2Box) {
+
             this->x2Box = p->x;
         }
 
@@ -315,5 +320,64 @@ auto RegionSelect::userTapped(double zoom) -> bool {
             return false;
         }
     }
+    return true;
+}
+
+PDFTextSelection::PDFTextSelection(double x, double y, Redrawable* view, cairo_t* cr): Selection(view) {
+    this->sx = x;
+    this->sy = y;
+    this->ex = x;
+    this->ey = y;
+
+    this->x1 = 0;
+    this->x2 = 0;
+    this->y1 = 0;
+    this->y2 = 0;
+
+    XojPageView* pv = static_cast<XojPageView*>(view);
+    this->ptc = new PDFTextSelectControl(pv, cr);
+}
+
+PDFTextSelection::~PDFTextSelection() = default;
+
+auto PDFTextSelection::finalize(PageRef page) -> bool {
+    this->x1 = std::min(this->sx, this->ex);
+    this->x2 = std::max(this->sx, this->ex);
+
+    this->y1 = std::min(this->sy, this->ey);
+    this->y2 = std::max(this->sy, this->ey);
+
+    this->page = page;
+
+    view->repaintArea(this->x1 - 10, this->y1 - 10, this->x2 + 10, this->y2 + 10);
+
+    this->ptc->finalize(ex, ey);
+
+    return !this->selectedElements.empty();
+}
+
+void PDFTextSelection::paint(cairo_t* cr, GdkRectangle* rect, double zoom) {
+    this->ptc->paint(cr, 1, 1);
+}
+
+void PDFTextSelection::currentPos(double x, double y) {
+    this->ex = x;
+    this->ey = y;
+
+    this->ptc->currentPos(this->sx, this->sy, this->ex, this->ey);
+}
+
+auto PDFTextSelection::userTapped(double zoom) -> bool{
+    return false;
+}
+
+auto PDFTextSelection::contains(double x, double y) -> bool {
+    if (x < this->x1Box || x > this->x2Box) {
+        return false;
+    }
+    if (y < this->y1Box || y > this->y2Box) {
+        return false;
+    }
+
     return true;
 }

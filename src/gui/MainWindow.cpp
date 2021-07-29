@@ -52,6 +52,7 @@ MainWindow::MainWindow(GladeSearchpath* gladeSearchPath, Control* control):
     loadMainCSS(gladeSearchPath, "xournalpp.css");
 
     GtkOverlay* overlay = GTK_OVERLAY(get("mainOverlay"));
+    this->pdfFloatingToolBox = new PdfFloatingToolbox(this, overlay);
     this->floatingToolbox = new FloatingToolbox(this, overlay);
 
     for (int i = 0; i < TOOLBAR_DEFINITIONS_LEN; i++) {

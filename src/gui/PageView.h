@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <cairo.h>
 #include "gui/inputdevices/PositionInputData.h"
 #include "model/PageListener.h"
 #include "model/PageRef.h"
@@ -68,7 +69,7 @@ public:
     void resetShapeRecognizer();
 
     void deleteViewBuffer();
-
+    
     /**
      * Returns whether this PageView contains the
      * given point on the display

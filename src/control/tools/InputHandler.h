@@ -107,10 +107,10 @@ public:
      */
     bool userTapped = false;
 
+    void createStroke(Point p);
+
 protected:
     static bool validMotion(Point p, Point q);
-
-    void createStroke(Point p);
 
     static constexpr double PIXEL_MOTION_THRESHOLD = 0.3;
 

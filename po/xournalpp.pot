@@ -3491,6 +3491,10 @@ msgstr ""
 msgid "_Tools"
 msgstr ""
 
+#: ../ui/main.glade:1341
+msgid "_SelectPDFText"
+msgstr ""
+
 #: ../ui/main.glade:1113
 msgid "_Top Layer"
 msgstr ""

@@ -131,6 +131,8 @@ auto toolTypeToString(ToolType type) -> string {
             return "drawSpline";
         case TOOL_FLOATING_TOOLBOX:
             return "showFloatingToolbox";
+        case TOOL_SELECT_PDF_TEXT:
+            return "selectPdfText";
         default:
             return "";
     }
@@ -189,6 +191,9 @@ auto toolTypeFromString(const string& type) -> ToolType {
     }
     if (type == "showFloatingToolbox") {
         return TOOL_FLOATING_TOOLBOX;
+    }
+    if (type == "selectPdfText") {
+        return TOOL_SELECT_PDF_TEXT;
     }
     return TOOL_NONE;
 }

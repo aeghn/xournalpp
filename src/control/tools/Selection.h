@@ -13,13 +13,19 @@
 
 #include <string>
 #include <vector>
+#include <cairo.h>
 
 #include "gui/Redrawable.h"
 #include "model/Element.h"
 #include "model/PageRef.h"
+#include "gui/PageView.h"
+
+#include "control/PDFTextSelectControl.h"
 
 #include "Util.h"
 
+class XournalView;
+class Control;
 
 class Selection: public ShapeContainer {
 public:
@@ -88,4 +94,36 @@ public:
 
 private:
     GList* points;
+};
+
+
+class PDFTextSelection: public Selection {
+public:
+    PDFTextSelection(double x, double y, Redrawable* view, cairo_t* cr);
+    virtual ~PDFTextSelection();
+
+public:
+    virtual bool finalize(PageRef page);
+    virtual void paint(cairo_t* cr, GdkRectangle* rect, double zoom);
+    virtual void currentPos(double x, double y);
+    virtual bool userTapped(double zoom);
+    virtual bool contains(double x, double y);
+    
+private:
+    StrokeHandler* sH = nullptr;
+    PDFTextSelectControl* ptc = nullptr;
+
+    double sx;
+    double sy;
+    double ex;
+    double ey;
+
+    /**
+     * In zoom coordinates
+     */
+    double x1;
+    double x2;
+    double y1;
+    double y2;
+
 };

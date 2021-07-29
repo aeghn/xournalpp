@@ -529,6 +529,12 @@ void Control::actionPerformed(ActionType type, ActionGroup group, GdkEvent* even
                 selectTool(TOOL_SELECT_RECT);
             }
             break;
+        case ACTION_TOOL_SELECT_PDF_TEXT:
+            clearSelection();
+            if (enabled) {
+                selectTool(TOOL_SELECT_PDF_TEXT);
+            }
+            break;            
         case ACTION_TOOL_SELECT_REGION:
             if (enabled) {
                 selectTool(TOOL_SELECT_REGION);

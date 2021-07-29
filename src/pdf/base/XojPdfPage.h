@@ -43,6 +43,10 @@ public:
 
     virtual std::vector<XojPdfRectangle> findText(std::string& text) = 0;
 
+    virtual std::string selectText(XojPdfRectangle* rec) = 0;
+    virtual std::string selectTextInArea(XojPdfRectangle* rec) = 0;
+    virtual std::vector<XojPdfRectangle> selectTextRegion(XojPdfRectangle* rec, double scale) = 0;
+
     virtual int getPageId() = 0;
 
 private:

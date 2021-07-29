@@ -212,6 +212,10 @@ auto ActionType_fromString(const string& value) -> ActionType {
         return ACTION_TOOL_SELECT_RECT;
     }
 
+    if (value == "ACTION_TOOL_SELECT_PDF_TEXT") {
+        return ACTION_TOOL_SELECT_PDF_TEXT;
+    }
+
     if (value == "ACTION_TOOL_SELECT_REGION") {
         return ACTION_TOOL_SELECT_REGION;
     }
@@ -808,6 +812,10 @@ auto ActionType_toString(ActionType value) -> string {
 
     if (value == ACTION_TOOL_SELECT_RECT) {
         return "ACTION_TOOL_SELECT_RECT";
+    }
+
+    if (value == ACTION_TOOL_SELECT_PDF_TEXT) {
+        return "ACTION_TOOL_SELECT_PDF_TEXT";
     }
 
     if (value == ACTION_TOOL_SELECT_REGION) {

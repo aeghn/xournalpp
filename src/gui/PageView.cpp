@@ -323,7 +323,8 @@ auto XojPageView::onButtonPressEvent(const PositionInputData& pos) -> bool {
     } else if (h->getToolType() == TOOL_VERTICAL_SPACE) {
         this->verticalSpace = new VerticalToolHandler(this, this->page, this->settings, y, zoom);
     } else if (h->getToolType() == TOOL_SELECT_RECT || h->getToolType() == TOOL_SELECT_REGION ||
-               h->getToolType() == TOOL_PLAY_OBJECT || h->getToolType() == TOOL_SELECT_OBJECT) {
+               h->getToolType() == TOOL_PLAY_OBJECT || h->getToolType() == TOOL_SELECT_OBJECT ||
+               h->getToolType() == TOOL_SELECT_PDF_TEXT) {
         if (h->getToolType() == TOOL_SELECT_RECT) {
             if (this->selection) {
                 delete this->selection;
@@ -338,6 +339,14 @@ auto XojPageView::onButtonPressEvent(const PositionInputData& pos) -> bool {
                 repaintPage();
             }
             this->selection = new RegionSelect(x, y, this);
+        } else if (h->getToolType() == TOOL_SELECT_PDF_TEXT) {
+            if (this->selection) {
+                delete this->selection;
+                this->selection = nullptr;
+                repaintPage();
+            }
+            cairo_t* cr = cairo_create(this->crBuffer);
+            this->selection = new PDFTextSelection(x, y, this, cr);
         } else if (h->getToolType() == TOOL_SELECT_OBJECT) {
             SelectObject select(this);
             select.at(x, y);

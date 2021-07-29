@@ -18,6 +18,7 @@
 #include "model/Font.h"
 
 #include "GladeGui.h"
+#include "PdfFloatingToolbox.h"
 
 class Control;
 class Layout;
@@ -41,6 +42,7 @@ public:
     virtual void layerVisibilityChanged();
 
     FloatingToolbox* floatingToolbox;
+    PdfFloatingToolbox* pdfFloatingToolBox;
 
 public:
     virtual void show(GtkWindow* parent);
