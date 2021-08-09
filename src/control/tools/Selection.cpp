@@ -329,11 +329,6 @@ PDFTextSelection::PDFTextSelection(double x, double y, Redrawable* view, cairo_t
     this->ex = x;
     this->ey = y;
 
-    this->x1 = 0;
-    this->x2 = 0;
-    this->y1 = 0;
-    this->y2 = 0;
-
     XojPageView* pv = static_cast<XojPageView*>(view);
     this->ptc = new PDFTextSelectControl(pv, cr, x, y);
 }
@@ -341,19 +336,17 @@ PDFTextSelection::PDFTextSelection(double x, double y, Redrawable* view, cairo_t
 PDFTextSelection::~PDFTextSelection() = default;
 
 auto PDFTextSelection::finalize(PageRef page) -> bool {
-    this->x1 = std::min(this->sx, this->ex);
-    this->x2 = std::max(this->sx, this->ex);
+    this->x1Box = std::min(this->sx, this->ex);
+    this->x2Box = std::max(this->sx, this->ex);
 
-    this->y1 = std::min(this->sy, this->ey);
-    this->y2 = std::max(this->sy, this->ey);
+    this->y1Box = std::min(this->sy, this->ey);
+    this->y2Box = std::max(this->sy, this->ey);
 
     this->page = page;
 
-    view->repaintArea(this->x1 - 10, this->y1 - 10, this->x2 + 10, this->y2 + 10);
-
     this->ptc->finalize(ex, ey);
 
-    return !this->selectedElements.empty();
+    return false;
 }
 
 void PDFTextSelection::paint(cairo_t* cr, GdkRectangle* rect, double zoom) {
@@ -371,7 +364,7 @@ auto PDFTextSelection::userTapped(double zoom) -> bool{
     return false;
 }
 
-auto PDFTextSelection::contains(double x, double y) -> bool {
+auto PDFTextSelection::contains(double x, double y) -> bool {    
     if (x < this->x1Box || x > this->x2Box) {
         return false;
     }

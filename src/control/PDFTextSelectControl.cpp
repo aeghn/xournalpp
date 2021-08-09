@@ -123,7 +123,7 @@ void PDFTextSelectControl::repaint(double zoom) {
 auto PDFTextSelectControl::finalize(double x, double y) -> bool {
     if (this->isTap) return false;
 
-    if (!this->selectPdfText()) return true;
+    if (!this->selectPdfText()) return false;
     this->paint(this->cr, zoom, zoom);
 
     this->popMenu(x, y);
