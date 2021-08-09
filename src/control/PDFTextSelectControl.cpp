@@ -13,8 +13,8 @@
 
 using std::string;
 
-PDFTextSelectControl::PDFTextSelectControl(XojPageView* view, cairo_t* cr):
-        isTap(true), view(view), rec(new XojPdfRectangle()), cr(cr) {
+PDFTextSelectControl::PDFTextSelectControl(XojPageView* view, cairo_t* cr, double x, double y):
+        isTap(true), view(view), cr(cr) {
     auto xournal = view->getXournal();
     this->widget = xournal->getWidget();
     this->page = view->getPage();
@@ -30,10 +30,7 @@ PDFTextSelectControl::PDFTextSelectControl(XojPageView* view, cairo_t* cr):
         this->pdf = std::move(pdf);
     }
 
-    this->x1Box = 0;
-    this->y1Box = 0;
-    this->x2Box = 0;
-    this->y2Box = 0;
+    this->se = new XojPdfRectangle(x, y, x, y);
 }
 
 PDFTextSelectControl::~PDFTextSelectControl() {
@@ -48,7 +45,7 @@ void PDFTextSelectControl::freeSelectResult() {
 auto PDFTextSelectControl::selectPdfText() -> bool {
     this->selectedText.clear();
     if (this->pdf) {
-        this->selectedText = this->pdf->selectText(this->rec);
+        this->selectedText = this->pdf->selectText(this->se);
     } else {
         return false;
     }
@@ -59,22 +56,19 @@ auto PDFTextSelectControl::selectPdfText() -> bool {
 auto PDFTextSelectControl::selectPdfRecs() -> bool {
     this->selectTextRecs.clear();
     if (this->pdf)
-        this->selectTextRecs = this->pdf->selectTextRegion(this->rec, 1);
+        this->selectTextRecs = this->pdf->selectTextRegion(this->se, 1);
     else
         return false;
 
     return !this->selectTextRecs.empty();
 }
 
-auto PDFTextSelectControl::currentPos(double x1, double y1, double x2, double y2) -> bool {
+auto PDFTextSelectControl::currentPos(double x2, double y2) -> bool {
     if (this->isTap) this->isTap = false;
 
-    this->rec->x1 = std::min(x1, x2);
-    this->rec->x2 = std::max(x1, x2);
-
-    this->rec->y1 = std::min(y1, y2);
-    this->rec->y2 = std::max(y1, y2);
-
+    this->se->x2 = x2;
+    this->se->y2 = y2;
+    
     this->repaint(1);
 
     return true;
@@ -98,11 +92,6 @@ auto PDFTextSelectControl::createRegionFromRecs(std::vector<XojPdfRectangle> xoj
         crRect.y = (gint) ((aY * yscale) + 0.5);
         crRect.width  = (gint) ((bX * xscale) + 0.5) - crRect.x;
         crRect.height = (gint) ((bY * yscale) + 0.5) - crRect.y;
-
-        if (aX < this->x1Box) this->x1Box = aX;
-        if (aY < this->y1Box) this->y1Box = aY;
-        if (bX > this->x2Box) this->x2Box = bX;
-        if (bY > this->y2Box) this->y2Box = bY;
 
         cairo_region_union_rectangle (retval, &crRect);
     }
@@ -133,18 +122,6 @@ void PDFTextSelectControl::repaint(double zoom) {
 
 auto PDFTextSelectControl::finalize(double x, double y) -> bool {
     if (this->isTap) return false;
-
-
-    double aX = std::min(this->rec->x1, this->rec->x2);
-    double bX = std::max(this->rec->x1, this->rec->x2);
-
-    double aY = std::min(this->rec->y1, this->rec->y2);
-    double bY = std::max(this->rec->y1, this->rec->y2);
-
-    this->rec->x1 = aX;
-    this->rec->x2 = bX;
-    this->rec->y1 = aY;
-    this->rec->y2 = bY;
 
     if (!this->selectPdfText()) return true;
     this->paint(this->cr, zoom, zoom);

@@ -335,7 +335,7 @@ PDFTextSelection::PDFTextSelection(double x, double y, Redrawable* view, cairo_t
     this->y2 = 0;
 
     XojPageView* pv = static_cast<XojPageView*>(view);
-    this->ptc = new PDFTextSelectControl(pv, cr);
+    this->ptc = new PDFTextSelectControl(pv, cr, x, y);
 }
 
 PDFTextSelection::~PDFTextSelection() = default;
@@ -364,7 +364,7 @@ void PDFTextSelection::currentPos(double x, double y) {
     this->ex = x;
     this->ey = y;
 
-    this->ptc->currentPos(this->sx, this->sy, this->ex, this->ey);
+    this->ptc->currentPos(this->ex, this->ey);
 }
 
 auto PDFTextSelection::userTapped(double zoom) -> bool{

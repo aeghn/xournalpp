@@ -21,11 +21,11 @@
 
 class PDFTextSelectControl {
 public:
-    PDFTextSelectControl(XojPageView* view, cairo_t* cr);
+    PDFTextSelectControl(XojPageView* view, cairo_t* cr, double x, double y);
     virtual ~PDFTextSelectControl();
 
 public:
-    bool currentPos(double x1, double y1, double x2, double y2);
+    bool currentPos(double x2, double y2);
 
     bool selectPdfText();
     bool selectPdfRecs();
@@ -53,17 +53,12 @@ private:
     XojPageView* view;
     PageRef page;
     XojPdfPageSPtr pdf;
-    XojPdfRectangle* rec;
+    XojPdfRectangle* se;
     cairo_t* cr;
 
     std::vector<XojPdfRectangle> selectTextRecs;
     std::string selectedText;
-
+    
     bool isTap;
     double zoom;
-
-    double x1Box;
-    double y1Box;
-    double x2Box;
-    double y2Box;
 };
