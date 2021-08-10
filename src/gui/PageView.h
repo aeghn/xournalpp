@@ -155,7 +155,7 @@ public:  // event handler
 
     /**
      * This method actually repaints the XojPageView, triggering
-     * a rerender call if necessary
+     * a rerenderPage call if necessary
      */
     bool paintPage(cairo_t* cr, GdkRectangle* rect);
 

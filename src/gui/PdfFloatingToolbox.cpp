@@ -1,14 +1,9 @@
-#include "PdfFloatingToolbox.h"
-
 #include "GladeGui.h"
 #include "MainWindow.h"
 
 PdfFloatingToolbox::PdfFloatingToolbox(MainWindow* theMainWindow, GtkOverlay* overlay) {
-    auto settings = gtk_settings_get_for_screen(gdk_screen_get_default());
+    this->selectType = PdfTextSelectType::SELECT_HEAD_TAIL;
 
-    auto vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    auto hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-    gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
     this->mainWindow = theMainWindow;
     this->floatingToolbox = theMainWindow->get("pdfFloatingToolbox");
 
@@ -22,6 +17,7 @@ PdfFloatingToolbox::PdfFloatingToolbox(MainWindow* theMainWindow, GtkOverlay* ov
     g_signal_connect(theMainWindow->get("pdfTbUnderline"), "clicked", G_CALLBACK(this->underlineCb), this);
     g_signal_connect(theMainWindow->get("pdfTbStrikethrough"), "clicked", G_CALLBACK(this->strikethroughCb), this);
     g_signal_connect(theMainWindow->get("pdfTbDoNothing"), "clicked", G_CALLBACK(this->closeCb), this);
+    g_signal_connect(theMainWindow->get("pdfTbChangeType"), "clicked", G_CALLBACK(this->switchSelectTypeCb), this);
 
     this->hide();
 }
@@ -82,10 +78,31 @@ void PdfFloatingToolbox::strikethroughCb(GtkButton* button, PdfFloatingToolbox* 
 
 void PdfFloatingToolbox::closeCb(GtkButton* button, PdfFloatingToolbox* pft) {
     pft->hide();
-    pft->pdfTextSelectControl->rerender();
+    pft->pdfTextSelectControl->rerenderPage();
 }
 
 void PdfFloatingToolbox::show() {
     gtk_widget_hide(this->floatingToolbox);  // force showing in new position
     gtk_widget_show_all(this->floatingToolbox);
+}
+
+void PdfFloatingToolbox::setSelectType(PdfTextSelectType type) {
+    this->selectType = type;
+}
+
+PdfTextSelectType PdfFloatingToolbox::getSelectType() {
+    return this->selectType;
+}
+
+void PdfFloatingToolbox::switchSelectTypeCb(GtkButton* button, PdfFloatingToolbox* pft) {
+    pft->switchSelectType();
+    pft->pdfTextSelectControl->reselect();
+}
+
+void PdfFloatingToolbox::switchSelectType() {
+    if (this->selectType != PdfTextSelectType::SELECT_IN_AREA) {
+        this->selectType = PdfTextSelectType::SELECT_IN_AREA;
+    } else {
+        this->selectType = PdfTextSelectType::SELECT_HEAD_TAIL;
+    }
 }

@@ -1,3 +1,4 @@
+#include <sstream>
 #include "PopplerGlibPage.h"
 #include <poppler.h>
 #include <poppler-page.h>
@@ -94,14 +95,16 @@ auto PopplerGlibPage::selectText(XojPdfRectangle* points) -> std::string {
 }
 
 auto PopplerGlibPage::selectTextInArea(XojPdfRectangle* points) -> std::string {
-    PopplerRectangle rec = {
-        .x1 = points->x1,
-        .y1 = points->y1,
-        .x2 = points->x2,
-        .y2 = points->y2,
-    };
+    auto recs = this->selectTextRegionInArea(points, 1);
 
-    return poppler_page_get_text_for_area(page, &rec);
+    std::ostringstream oss;
+
+    for (auto &item : recs) {
+        oss << " " << this->selectText(&item);
+    }
+
+    recs.clear();
+    return oss.str();
 }
 
 auto PopplerGlibPage::selectTextRegion(XojPdfRectangle* rec, gdouble scale) -> std::vector<XojPdfRectangle> {
@@ -116,16 +119,45 @@ auto PopplerGlibPage::selectTextRegion(XojPdfRectangle* rec, gdouble scale) -> s
 
     GList* region = poppler_page_get_selection_region(page, 1.0, POPPLER_SELECTION_GLYPH, &rec2);
 
-    GList *l;
+    GList *l = nullptr;
 	for (l = region; l; l = g_list_next (l)) {
-		PopplerRectangle *rec = (PopplerRectangle *)l->data;
+		auto * r = (PopplerRectangle *)l->data;
         
-        recs.emplace_back(std::min(rec->x1, rec->x2),
-            std::min(rec->y1, rec->y2),
-            std::max(rec->x1, rec->x2),
-            std::max(rec->y1, rec->y2));
+        recs.emplace_back(std::min(r->x1, r->x2),
+            std::min(r->y1, r->y2),
+            std::max(r->x1, r->x2),
+            std::max(r->y1, r->y2));
     }
 
+	poppler_page_selection_region_free(region);
+
+    return recs;
+}
+
+auto PopplerGlibPage::selectTextRegionInArea(XojPdfRectangle* rec, double scale) -> std::vector<XojPdfRectangle> {
+    double aX = std::min(rec->x1, rec->x2);
+    double bX = std::max(rec->x1, rec->x2);
+    double aY = std::min(rec->y1, rec->y2);
+    double bY = std::max(rec->y1, rec->y2);
+
+    auto* rec2 = new XojPdfRectangle(aX, aY, bX, bY);
+
+    auto recs = this->selectTextRegion(rec2, scale);
+    delete rec2;
+
+    for (auto r = recs.begin(); r != recs.end(); ) {
+        // this rectangle is not intersecting with original selection box.
+        if (r->x1 > bX || r->x2 < aX || r->y1 > bY || r->y2 < aY) {
+            r = recs.erase(r);
+            continue;
+        }
+
+        r->x1 = std::max(r->x1, aX);
+        r->x2 = std::min(r->x2, bX);
+        r->y1 = std::max(r->y1, aY);
+        r->y2 = std::min(r->y2, bY);
+        r++;
+    }
 
     return recs;
 }

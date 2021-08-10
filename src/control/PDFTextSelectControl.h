@@ -11,12 +11,15 @@
 
 #pragma once
 
+#include "control/PDFTextSelectControl.h"
+
 #include <string_view>
 #include <vector>
 #include <cairo.h>
+
+#include "gui/PageView.h"
 #include "model/PageRef.h"
 #include "pdf/base/XojPdfPage.h"
-#include "gui/PageView.h"
 #include "tools/StrokeHandler.h"
 
 class PDFTextSelectControl {
@@ -31,8 +34,9 @@ public:
     bool selectPdfRecs();
 
     void paint(cairo_t* cr, double scale_x, double scale_y);
+    void reselect();
     void repaint(double zoom);
-    void rerender();
+    void rerenderPage();
 
     bool finalize(double x, double y);
     void popMenu(double x, double y);
@@ -44,6 +48,11 @@ public:
     void drawStrikethrough();
 
 private:
+    void selectPdfTextInArea();
+    void selectPdfTextHeadTail();
+    void selectPdfRecsInArea();
+    void selectPdfRecsHeadTail();
+
     void freeSelectResult();
     cairo_region_t * createRegionFromRecs(std::vector<XojPdfRectangle> xojRecs, gdouble xscale, gdouble yscale);
 
