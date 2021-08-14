@@ -1,26 +1,20 @@
-/*
- * Xournal++
- *
- * Handles text selection on a PDF page and in Xournal Texts
- *
- * @author Xournal++ Team
- * https://github.com/xournalpp/xournalpp
- *
- * @license GNU GPLv2 or later
- */
-
 #pragma once
-
-#include "control/PDFTextSelectControl.h"
 
 #include <string_view>
 #include <vector>
+
 #include <cairo.h>
 
 #include "gui/PageView.h"
 #include "model/PageRef.h"
 #include "pdf/base/XojPdfPage.h"
 #include "tools/StrokeHandler.h"
+
+class PdfFloatingToolbox;
+enum PdfTextSelectType {
+    SELECT_IN_AREA = 0,
+    SELECT_HEAD_TAIL
+};
 
 class PDFTextSelectControl {
 public:
@@ -35,7 +29,7 @@ public:
 
     void paint(cairo_t* cr, double scale_x, double scale_y);
     void reselect();
-    void repaint(double zoom);
+    void repaintPage();
     void rerenderPage();
 
     bool finalize(double x, double y);
@@ -46,6 +40,7 @@ public:
     void drawHighlight();
     void drawUnderline();
     void drawStrikethrough();
+    void setSelectType(PdfTextSelectType selectType);
 
 private:
     void selectPdfTextInArea();
@@ -54,7 +49,7 @@ private:
     void selectPdfRecsHeadTail();
 
     void freeSelectResult();
-    cairo_region_t * createRegionFromRecs(std::vector<XojPdfRectangle> xojRecs, gdouble xscale, gdouble yscale);
+    static cairo_region_t* createRegionFromRecs(const std::vector<XojPdfRectangle>& xojRecs);
 
 private:
     GtkWidget* widget = nullptr;
@@ -67,7 +62,10 @@ private:
 
     std::vector<XojPdfRectangle> selectTextRecs;
     std::string selectedText;
+
+    PdfTextSelectType selectType;
     
     bool isTap;
     double zoom;
+    void rerenderBox(const std::vector<XojPdfRectangle>& xojRecs);
 };

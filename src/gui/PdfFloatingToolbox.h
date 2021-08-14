@@ -9,11 +9,6 @@
 
 class MainWindow;
 
-enum PdfTextSelectType {
-    SELECT_IN_AREA,
-    SELECT_HEAD_TAIL
-};
-
 class PdfFloatingToolbox {
 public:
     PdfFloatingToolbox(MainWindow* theMainWindow, GtkOverlay* overlay);
@@ -43,7 +38,6 @@ private:
     static void switchSelectTypeCb(GtkButton* button, PdfFloatingToolbox* pft);
     
 private:
-    MainWindow* mainWindow;
     GtkWidget* floatingToolbox;
 
     PdfTextSelectType selectType;

@@ -1,34 +1,18 @@
 #include "PDFTextSelectControl.h"
 
-#include <climits>
 #include <utility>
 #include <cairo.h>
 
-#include "model/Layer.h"
-#include "model/Text.h"
 #include "view/TextView.h"
 #include "control/Control.h"
 #include "gui/XournalView.h"
-
-
-using std::string;
-
-static void printRecs(const std::vector<XojPdfRectangle>& xojRecs) {
-    std::ostringstream oss;
-    int i = 0;
-    oss << "---- \n";
-    for (const auto& r : xojRecs) {
-        oss << i++ << ". (" << r.x1 << ", " << r.y1 << ", " << r.x2 << ", " << r.y2 << ")" << "\n";
-    }
-    g_message("%s", oss.str().c_str());
-    oss.clear();
-}
 
 PDFTextSelectControl::PDFTextSelectControl(XojPageView* view, cairo_t* cr, double x, double y):
     isTap(true), view(view), cr(cr) {
     auto xournal = view->getXournal();
     this->widget = xournal->getWidget();
     this->page = view->getPage();
+    this->selectType = this->view->getXournal()->getControl()->getWindow()->pdfFloatingToolBox->getSelectType();
 
     auto pNr = this->page->getPdfPageNr();
     if (pNr != npos) {
@@ -56,8 +40,7 @@ void PDFTextSelectControl::freeSelectResult() {
 auto PDFTextSelectControl::selectPdfText() -> bool {
     this->selectedText.clear();
     if (this->pdf) {
-        auto pftb = this->view->getXournal()->getControl()->getWindow()->pdfFloatingToolBox;
-        if (pftb->getSelectType() == PdfTextSelectType::SELECT_HEAD_TAIL) {
+        if (this->selectType == PdfTextSelectType::SELECT_HEAD_TAIL) {
             this->selectPdfTextHeadTail();
         } else {
             this->selectPdfTextInArea();
@@ -80,8 +63,7 @@ void PDFTextSelectControl::selectPdfTextHeadTail() {
 auto PDFTextSelectControl::selectPdfRecs() -> bool {
     this->selectTextRecs.clear();
     if (this->pdf) {
-        auto pftb = this->view->getXournal()->getControl()->getWindow()->pdfFloatingToolBox;
-        if (pftb->getSelectType() == PdfTextSelectType::SELECT_HEAD_TAIL) {
+        if (this->selectType == PdfTextSelectType::SELECT_HEAD_TAIL) {
             this->selectPdfRecsHeadTail();
         } else {
             this->selectPdfRecsInArea();
@@ -106,15 +88,13 @@ auto PDFTextSelectControl::currentPos(double x2, double y2) -> bool {
     this->se->x2 = x2;
     this->se->y2 = y2;
 
-    this->repaint(1);
+    this->repaintPage();
 
     return true;
 }
 
-auto PDFTextSelectControl::createRegionFromRecs(std::vector<XojPdfRectangle> xojRecs, gdouble xscale, gdouble yscale) -> cairo_region_t * {
-    cairo_region_t *retval = nullptr;
-
-    retval = cairo_region_create();
+auto PDFTextSelectControl::createRegionFromRecs(const std::vector<XojPdfRectangle>& xojRecs) -> cairo_region_t * {
+    cairo_region_t *retval = cairo_region_create();
 
     for(auto & xojRec: xojRecs) {
         cairo_rectangle_int_t crRect;
@@ -125,10 +105,10 @@ auto PDFTextSelectControl::createRegionFromRecs(std::vector<XojPdfRectangle> xoj
         int aY = std::min(xojRec.y1, xojRec.y2);
         int bY = std::max(xojRec.y1, xojRec.y2);
 
-        crRect.x = (gint) ((aX * xscale) + 0.5);
-        crRect.y = (gint) ((aY * yscale) + 0.5);
-        crRect.width  = (gint) ((bX * xscale) + 0.5) - crRect.x;
-        crRect.height = (gint) ((bY * yscale) + 0.5) - crRect.y;
+        crRect.x = (gint) ((aX * 1) + 0.5);
+        crRect.y = (gint) ((aY * 1) + 0.5);
+        crRect.width  = (gint) ((bX * 1) + 0.5) - crRect.x;
+        crRect.height = (gint) ((bY * 1) + 0.5) - crRect.y;
 
         cairo_region_union_rectangle (retval, &crRect);
     }
@@ -139,8 +119,7 @@ auto PDFTextSelectControl::createRegionFromRecs(std::vector<XojPdfRectangle> xoj
 void PDFTextSelectControl::paint(cairo_t* cr, double scale_x, double scale_y) {
     if (! this->selectPdfRecs()) return;
 
-//    printRecs(this->selectTextRecs);
-    auto region = createRegionFromRecs(this->selectTextRecs, 1, 1);
+    auto region = createRegionFromRecs(this->selectTextRecs);
 
     cairo_save (cr);
     cairo_scale (cr, scale_x, scale_y);
@@ -149,27 +128,22 @@ void PDFTextSelectControl::paint(cairo_t* cr, double scale_x, double scale_y) {
     gdk_cairo_region (cr, region);
     gdk_cairo_set_source_rgba(cr, &applied);
     cairo_set_operator (cr, CAIRO_OPERATOR_MULTIPLY);
-    cairo_set_antialias (cr, CAIRO_ANTIALIAS_NONE);
     cairo_fill (cr);
+    cairo_region_destroy(region);
+
     cairo_restore (cr);
 }
 
-void PDFTextSelectControl::repaint(double zoom) {
+void PDFTextSelectControl::repaintPage() {
     this->view->repaintPage();
-}
-
-void PDFTextSelectControl::reselect() {
-    this->repaint(this->zoom);
-    this->paint(this->cr, this->zoom, this->zoom);
-    this->selectPdfText();
 }
 
 auto PDFTextSelectControl::finalize(double x, double y) -> bool {
     if (this->isTap) return false;
 
     if (!this->selectPdfText()) return false;
-    this->paint(this->cr, zoom, zoom);
-
+    this->paint(this->cr, this->zoom, this->zoom);
+    this->repaintPage();
     this->popMenu(x, y);
 
     return true;
@@ -224,19 +198,19 @@ void PDFTextSelectControl::copyText() {
 }
 
 void PDFTextSelectControl::drawHighlight() {
-    this->repaint(this->zoom);
+    this->repaintPage();
     this->draw(1, 60, 1);
     this->view->rerenderPage();
 }
 
 void PDFTextSelectControl::drawUnderline() {
-    this->repaint(this->zoom);
+    this->repaintPage();
     this->draw(0, 230, 0);
     this->view->rerenderPage();
 }
 
 void PDFTextSelectControl::drawStrikethrough() {
-    this->repaint(this->zoom);
+    this->repaintPage();
     this->draw(0, 230, 1);
     this->view->rerenderPage();
 }
@@ -257,4 +231,33 @@ void PDFTextSelectControl::popMenu(double x, double y) {
     wy += std::lround(y * zoom + view->getY());
 
     this->view->getXournal()->getControl()->getWindow()->pdfFloatingToolBox->show(wx, wy, this);
+}
+
+void PDFTextSelectControl::rerenderBox(const std::vector<XojPdfRectangle>& xojRecs) {
+    auto aX = xojRecs.at(0).x1;
+    auto aY = xojRecs.at(0).y1;
+    auto bX = xojRecs.at(0).x2;
+    auto bY = xojRecs.at(0).y2;
+
+    for (const auto& item: xojRecs) {
+        aX = std::min(item.x1, aX);
+        aY = std::min(item.y1, aY);
+        bX = std::max(item.x2, bX);
+        bY = std::max(item.y2, bY);
+    }
+
+    this->view->rerenderRect(aX, aY, bX-aX, bY-aY);
+}
+
+void PDFTextSelectControl::reselect() {
+    auto pftb = this->view->getXournal()->getControl()->getWindow()->pdfFloatingToolBox;
+    if (pftb->getSelectType() == PdfTextSelectType::SELECT_IN_AREA) {
+        this->rerenderBox(this->selectTextRecs);
+    }
+    this->repaintPage();
+    this->paint(this->cr, this->zoom, this->zoom);
+    this->selectPdfText();
+}
+void PDFTextSelectControl::setSelectType(PdfTextSelectType selectType) {
+    PDFTextSelectControl::selectType = selectType;
 }

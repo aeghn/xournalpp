@@ -4,7 +4,6 @@
 PdfFloatingToolbox::PdfFloatingToolbox(MainWindow* theMainWindow, GtkOverlay* overlay) {
     this->selectType = PdfTextSelectType::SELECT_HEAD_TAIL;
 
-    this->mainWindow = theMainWindow;
     this->floatingToolbox = theMainWindow->get("pdfFloatingToolbox");
 
     gtk_overlay_add_overlay(overlay, this->floatingToolbox);
@@ -46,9 +45,8 @@ auto PdfFloatingToolbox::getOverlayPosition(GtkOverlay* overlay, GtkWidget* widg
         allocation->width = natural.width;
         allocation->height = natural.height;
 
-        // show centered on x,y
-        allocation->x = self->floatingToolboxX - allocation->width / 2;
-        allocation->y = self->floatingToolboxY - allocation->height / 2;
+        allocation->x = self->floatingToolboxX;
+        allocation->y = self->floatingToolboxY;
         return true;
     }
 
@@ -105,4 +103,6 @@ void PdfFloatingToolbox::switchSelectType() {
     } else {
         this->selectType = PdfTextSelectType::SELECT_HEAD_TAIL;
     }
+
+    this->pdfTextSelectControl->setSelectType(this->selectType);
 }

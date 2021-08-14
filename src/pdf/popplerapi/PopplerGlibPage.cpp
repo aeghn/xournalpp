@@ -97,10 +97,23 @@ auto PopplerGlibPage::selectText(XojPdfRectangle* points) -> std::string {
 auto PopplerGlibPage::selectTextInArea(XojPdfRectangle* points) -> std::string {
     auto recs = this->selectTextRegionInArea(points, 1);
 
+    for (size_t i = 0; i < recs.size() - 1; i++) {
+        for (size_t j = i + 1; j < recs.size(); j++) {
+            auto& r1 = recs.at(i);
+            auto& r2 = recs.at(j);
+            // TODO need to consider other conditions
+            if (r1.y2 > r2.y1) {
+                auto t = r1.y2;
+                r1.y2 = r2.y1 - 1;
+                r2.y1 = t + 1;
+            }
+        }
+    }
+
     std::ostringstream oss;
 
     for (auto &item : recs) {
-        oss << " " << this->selectText(&item);
+        oss << this->selectText(&item) << "\n";
     }
 
     recs.clear();
@@ -134,6 +147,9 @@ auto PopplerGlibPage::selectTextRegion(XojPdfRectangle* rec, gdouble scale) -> s
     return recs;
 }
 
+
+
+
 auto PopplerGlibPage::selectTextRegionInArea(XojPdfRectangle* rec, double scale) -> std::vector<XojPdfRectangle> {
     double aX = std::min(rec->x1, rec->x2);
     double bX = std::max(rec->x1, rec->x2);
@@ -154,8 +170,8 @@ auto PopplerGlibPage::selectTextRegionInArea(XojPdfRectangle* rec, double scale)
 
         r->x1 = std::max(r->x1, aX);
         r->x2 = std::min(r->x2, bX);
-        r->y1 = std::max(r->y1, aY);
-        r->y2 = std::min(r->y2, bY);
+//        r->y1 = std::max(r->y1, aY);
+//        r->y2 = std::min(r->y2, bY);
         r++;
     }
 
