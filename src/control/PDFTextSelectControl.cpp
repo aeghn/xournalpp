@@ -250,11 +250,11 @@ void PDFTextSelectControl::rerenderBox(const std::vector<XojPdfRectangle>& xojRe
 }
 
 void PDFTextSelectControl::reselect() {
-    auto pftb = this->view->getXournal()->getControl()->getWindow()->pdfFloatingToolBox;
-    if (pftb->getSelectType() == PdfTextSelectType::SELECT_IN_AREA) {
-        this->rerenderBox(this->selectTextRecs);
-    }
+    this->rerenderBox(this->selectTextRecs);
     this->repaintPage();
+    // FIXME It should happen after rerender job
+    std::chrono::milliseconds dur(20);
+    std::this_thread::sleep_for(dur);
     this->paint(this->cr, this->zoom, this->zoom);
     this->selectPdfText();
 }
