@@ -21,6 +21,7 @@
 #include "control/tools/RectangleHandler.h"
 #include "control/tools/RulerHandler.h"
 #include "control/tools/Selection.h"
+#include "control/tools/PdfTextSelection.h"
 #include "control/tools/SplineHandler.h"
 #include "control/tools/StrokeHandler.h"
 #include "control/tools/VerticalToolHandler.h"
@@ -340,13 +341,14 @@ auto XojPageView::onButtonPressEvent(const PositionInputData& pos) -> bool {
             }
             this->selection = new RegionSelect(x, y, this);
         } else if (h->getToolType() == TOOL_SELECT_PDF_TEXT) {
-            if (this->selection) {
-                delete this->selection;
-                this->selection = nullptr;
+            if (this->pdfTextSelection && this->pdfTextSelection->isFinished) {
+                delete this->pdfTextSelection;
+                this->pdfTextSelection = nullptr;
                 repaintPage();
             }
-            cairo_t* cr = cairo_create(this->crBuffer);
-            this->selection = new PDFTextSelection(x, y, this, cr);
+            if (!this->pdfTextSelection) {
+                this->pdfTextSelection = new PdfTextSelection(x, y, this);
+            }
         } else if (h->getToolType() == TOOL_SELECT_OBJECT) {
             SelectObject select(this);
             select.at(x, y);
@@ -478,6 +480,8 @@ auto XojPageView::onMotionNotifyEvent(const PositionInputData& pos) -> bool {
         // input handler used this event
     } else if (this->selection) {
         this->selection->currentPos(x, y);
+    } else if (this->pdfTextSelection && !this->pdfTextSelection->isFinalized) {
+        this->pdfTextSelection->currentPos(x, y);
     } else if (this->verticalSpace) {
         this->verticalSpace->currentPos(x, y);
     } else if (this->textEditor) {
@@ -546,6 +550,10 @@ auto XojPageView::onButtonReleaseEvent(const PositionInputData& pos) -> bool {
         control->getUndoRedoHandler()->addUndoAction(this->verticalSpace->finalize());
         delete this->verticalSpace;
         this->verticalSpace = nullptr;
+    }
+
+    if (this->pdfTextSelection) {
+        this->pdfTextSelection->finalize(this->page);
     }
 
     if (this->selection) {
@@ -800,6 +808,10 @@ void XojPageView::paintPageSync(cairo_t* cr, GdkRectangle* rect) {
     if (this->selection) {
         cairo_scale(cr, zoom, zoom);
         this->selection->paint(cr, rect, zoom);
+    }
+    if (this->pdfTextSelection && ! this->pdfTextSelection->isFinished) {
+        cairo_scale(cr, zoom, zoom);
+        this->pdfTextSelection->paint(cr, rect, zoom);
     }
 
     if (this->search) {

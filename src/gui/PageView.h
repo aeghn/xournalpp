@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cairo.h>
+
 #include "gui/inputdevices/PositionInputData.h"
 #include "model/PageListener.h"
 #include "model/PageRef.h"
@@ -27,6 +28,7 @@ class EraseHandler;
 class InputHandler;
 class SearchControl;
 class Selection;
+class PdfTextSelection;
 class Settings;
 class Text;
 class TextEditor;
@@ -155,7 +157,7 @@ public:  // event handler
 
     /**
      * This method actually repaints the XojPageView, triggering
-     * a rerenderPage call if necessary
+     * a rerender call if necessary
      */
     bool paintPage(cairo_t* cr, GdkRectangle* rect);
 
@@ -196,6 +198,12 @@ private:
      * The selected (while selection)
      */
     Selection* selection = nullptr;
+
+    /**
+     * The selected especially for pdf text selection and will
+     * survive after selection
+    */
+    PdfTextSelection* pdfTextSelection = nullptr;
 
     /**
      * The text editor View
@@ -247,6 +255,7 @@ private:
     friend class BaseSelectObject;
     friend class SelectObject;
     friend class PlayObject;
+    friend class PdfFloatingToolbox;
     // only function allowed to setX(), setY(), setMappedRowCol():
     friend void Layout::layoutPages(int width, int height);
 };

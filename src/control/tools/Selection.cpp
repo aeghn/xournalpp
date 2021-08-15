@@ -1,12 +1,8 @@
 #include "Selection.h"
 
-#include <algorithm>
 #include <cmath>
-#include <cairo.h>
 
 #include "model/Layer.h"
-#include "gui/XournalView.h"
-#include "control/Control.h"
 
 Selection::Selection(Redrawable* view) {
     this->view = view;
@@ -320,57 +316,5 @@ auto RegionSelect::userTapped(double zoom) -> bool {
             return false;
         }
     }
-    return true;
-}
-
-PDFTextSelection::PDFTextSelection(double x, double y, Redrawable* view, cairo_t* cr): Selection(view) {
-    this->sx = x;
-    this->sy = y;
-    this->ex = x;
-    this->ey = y;
-
-    XojPageView* pv = static_cast<XojPageView*>(view);
-    this->ptc = new PDFTextSelectControl(pv, cr, x, y);
-}
-
-PDFTextSelection::~PDFTextSelection() = default;
-
-auto PDFTextSelection::finalize(PageRef page) -> bool {
-    this->x1Box = std::min(this->sx, this->ex);
-    this->x2Box = std::max(this->sx, this->ex);
-
-    this->y1Box = std::min(this->sy, this->ey);
-    this->y2Box = std::max(this->sy, this->ey);
-
-    this->page = page;
-
-    this->ptc->finalize(ex, ey);
-
-    return false;
-}
-
-void PDFTextSelection::paint(cairo_t* cr, GdkRectangle* rect, double zoom) {
-    this->ptc->paint(cr, 1, 1);
-}
-
-void PDFTextSelection::currentPos(double x, double y) {
-    this->ex = x;
-    this->ey = y;
-
-    this->ptc->currentPos(this->ex, this->ey);
-}
-
-auto PDFTextSelection::userTapped(double zoom) -> bool{
-    return false;
-}
-
-auto PDFTextSelection::contains(double x, double y) -> bool {    
-    if (x < this->x1Box || x > this->x2Box) {
-        return false;
-    }
-    if (y < this->y1Box || y > this->y2Box) {
-        return false;
-    }
-
     return true;
 }

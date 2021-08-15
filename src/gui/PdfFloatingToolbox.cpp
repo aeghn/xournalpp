@@ -1,10 +1,13 @@
+#include <control/tools/StrokeHandler.h>
+
 #include "GladeGui.h"
 #include "MainWindow.h"
 
 PdfFloatingToolbox::PdfFloatingToolbox(MainWindow* theMainWindow, GtkOverlay* overlay) {
-    this->selectType = PdfTextSelectType::SELECT_HEAD_TAIL;
-
+    this->theMainWindow = theMainWindow;
     this->floatingToolbox = theMainWindow->get("pdfFloatingToolbox");
+
+    this->selectType = PdfTextSelectType::SELECT_HEAD_TAIL;
 
     gtk_overlay_add_overlay(overlay, this->floatingToolbox);
     gtk_overlay_set_overlay_pass_through(overlay, this->floatingToolbox, true);
@@ -23,9 +26,12 @@ PdfFloatingToolbox::PdfFloatingToolbox(MainWindow* theMainWindow, GtkOverlay* ov
 
 PdfFloatingToolbox::~PdfFloatingToolbox() = default;
 
-void PdfFloatingToolbox::show(int x, int y, PDFTextSelectControl* pdfTextSelectControl) {
-    delete this->pdfTextSelectControl;
-    this->pdfTextSelectControl = pdfTextSelectControl;
+void PdfFloatingToolbox::show(int x, int y, PdfTextSelection* pdfTextSelection) {
+    if (this->pdfTextSelection && this->pdfTextSelection != pdfTextSelection) {
+        delete this->pdfTextSelection;
+        this->pdfTextSelection = nullptr;
+    }
+    this->pdfTextSelection = pdfTextSelection;
     this->floatingToolboxX = x;
     this->floatingToolboxY = y;
     this->show();
@@ -53,30 +59,42 @@ auto PdfFloatingToolbox::getOverlayPosition(GtkOverlay* overlay, GtkWidget* widg
     return false;
 }
 
+void PdfFloatingToolbox::postAction() {
+    this->pdfTextSelection->isFinished = true;
+    auto view = this->pdfTextSelection->getPageView();
+
+    this->hide();
+    this->pdfTextSelection->clearSelection();
+
+    delete this->pdfTextSelection;
+    this->pdfTextSelection = nullptr;
+    view->pdfTextSelection = nullptr;
+
+    view->rerenderPage();
+}
 
 void PdfFloatingToolbox::highlightCb(GtkButton* button, PdfFloatingToolbox* pft) {
-    pft->hide();
-    pft->pdfTextSelectControl->drawHighlight();
+    pft->createStrokesForHighlight();
+    pft->postAction();
 }
 
 void PdfFloatingToolbox::copyTextCb(GtkButton* button, PdfFloatingToolbox* pft) {
-    pft->hide();
-    pft->pdfTextSelectControl->copyText();
+    pft->copyText();
+    pft->postAction();
 }
 
 void PdfFloatingToolbox::underlineCb(GtkButton* button, PdfFloatingToolbox* pft) {
-    pft->hide();
-    pft->pdfTextSelectControl->drawUnderline();
+    pft->createStrokesForUnderline();
+    pft->postAction();
 }
 
 void PdfFloatingToolbox::strikethroughCb(GtkButton* button, PdfFloatingToolbox* pft) {
-    pft->hide();
-    pft->pdfTextSelectControl->drawStrikethrough();
+    pft->createStrokesForStrikethrough();
+    pft->postAction();
 }
 
 void PdfFloatingToolbox::closeCb(GtkButton* button, PdfFloatingToolbox* pft) {
-    pft->hide();
-    pft->pdfTextSelectControl->rerenderPage();
+    pft->postAction();
 }
 
 void PdfFloatingToolbox::show() {
@@ -94,7 +112,8 @@ PdfTextSelectType PdfFloatingToolbox::getSelectType() {
 
 void PdfFloatingToolbox::switchSelectTypeCb(GtkButton* button, PdfFloatingToolbox* pft) {
     pft->switchSelectType();
-    pft->pdfTextSelectControl->reselect();
+    pft->pdfTextSelection->selectPdfRecs();
+    pft->pdfTextSelection->getPageView()->rerenderPage();
 }
 
 void PdfFloatingToolbox::switchSelectType() {
@@ -103,6 +122,66 @@ void PdfFloatingToolbox::switchSelectType() {
     } else {
         this->selectType = PdfTextSelectType::SELECT_HEAD_TAIL;
     }
+}
 
-    this->pdfTextSelectControl->setSelectType(this->selectType);
+void PdfFloatingToolbox::copyText() {
+    GtkClipboard* clipboard = gtk_widget_get_clipboard(this->theMainWindow->getWindow(), GDK_SELECTION_CLIPBOARD);
+
+    this->pdfTextSelection->selectPdfText();
+    const gchar* text = this->pdfTextSelection->getSelectedText().c_str();
+
+    gtk_clipboard_set_text(clipboard, text, -1);
+}
+
+void PdfFloatingToolbox::createStrokes(PdfMarkerStyle position, PdfMarkerStyle width, int markerOpacity) {
+    if (this->pdfTextSelection->getSelectedTextRecs().empty()) return;
+
+    auto strokeHandler = new StrokeHandler(this->pdfTextSelection->getPageView()->getXournal(),
+                                           this->pdfTextSelection->getPageView(),
+                                           this->pdfTextSelection->getPageView()->getPage());
+    Stroke* stroke = nullptr;
+
+    auto p = new PositionInputData();
+    p->pressure = -1;
+    p->state = GDK_RELEASE_MASK;
+
+    for (XojPdfRectangle rect: this->pdfTextSelection->getSelectedTextRecs()) {
+        // the center line position of stroke
+        double h = position == PdfMarkerStyle::POS_TEXT_BOTTOM
+                   ? std::max(rect.y1, rect.y2)
+                   : position == PdfMarkerStyle::POS_TEXT_MIDDLE
+                     ? (rect.y1 + rect.y2) /2
+                     : std::min(rect.y1, rect.y2);
+
+        // the width of stroke
+        double w = width == PdfMarkerStyle::WIDTH_TEXT_LINE ? 1 : std::abs(rect.y2 - rect.y1);
+
+        if (! strokeHandler->getStroke() || stroke == nullptr) {
+            strokeHandler->createStroke(Point(rect.x1, h, -1));
+            stroke = strokeHandler->getStroke();
+            stroke->setFill(markerOpacity);
+            stroke->setToolType(STROKE_TOOL_HIGHLIGHTER);
+            stroke->setWidth(w);
+        }
+
+        strokeHandler->onButtonPressEvent(*p);
+
+        stroke->addPoint(Point(rect.x2, h, -1));
+
+        strokeHandler->onButtonReleaseEvent(*p);
+    }
+
+    delete p;
+}
+
+void PdfFloatingToolbox::createStrokesForHighlight() {
+    this->createStrokes(PdfMarkerStyle::POS_TEXT_MIDDLE, PdfMarkerStyle::WIDTH_TEXT_HEIGHT, 60);
+}
+
+void PdfFloatingToolbox::createStrokesForUnderline() {
+    this->createStrokes(PdfMarkerStyle::POS_TEXT_BOTTOM, PdfMarkerStyle::WIDTH_TEXT_LINE, 230);
+}
+
+void PdfFloatingToolbox::createStrokesForStrikethrough() {
+    this->createStrokes(PdfMarkerStyle::POS_TEXT_MIDDLE, PdfMarkerStyle::WIDTH_TEXT_LINE, 230);
 }

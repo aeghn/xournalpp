@@ -83,18 +83,18 @@ auto PopplerGlibPage::findText(std::string& text) -> std::vector<XojPdfRectangle
     return findings;
 }
 
-auto PopplerGlibPage::selectText(XojPdfRectangle* points) -> std::string {
+auto PopplerGlibPage::selectText(XojPdfRectangle& points) -> std::string {
     PopplerRectangle rec = {
-        .x1 = points->x1,
-        .y1 = points->y1,
-        .x2 = points->x2,
-        .y2 = points->y2,
+        .x1 = points.x1,
+        .y1 = points.y1,
+        .x2 = points.x2,
+        .y2 = points.y2,
     };
 
     return poppler_page_get_selected_text(page, POPPLER_SELECTION_GLYPH, &rec);
 }
 
-auto PopplerGlibPage::selectTextInArea(XojPdfRectangle* points) -> std::string {
+auto PopplerGlibPage::selectTextInArea(XojPdfRectangle& points) -> std::string {
     auto recs = this->selectTextRegionInArea(points, 1);
 
     for (size_t i = 0; i < recs.size() - 1; i++) {
@@ -113,21 +113,21 @@ auto PopplerGlibPage::selectTextInArea(XojPdfRectangle* points) -> std::string {
     std::ostringstream oss;
 
     for (auto &item : recs) {
-        oss << this->selectText(&item) << "\n";
+        oss << this->selectText(item) << "\n";
     }
 
     recs.clear();
     return oss.str();
 }
 
-auto PopplerGlibPage::selectTextRegion(XojPdfRectangle* rec, gdouble scale) -> std::vector<XojPdfRectangle> {
+auto PopplerGlibPage::selectTextRegion(XojPdfRectangle& rec, gdouble scale) -> std::vector<XojPdfRectangle> {
     std::vector<XojPdfRectangle> recs;
 
     PopplerRectangle rec2 = {
-        .x1 = rec->x1,
-        .y1 = rec->y1,
-        .x2 = rec->x2,
-        .y2 = rec->y2,
+        .x1 = rec.x1,
+        .y1 = rec.y1,
+        .x2 = rec.x2,
+        .y2 = rec.y2,
     };
 
     GList* region = poppler_page_get_selection_region(page, 1.0, POPPLER_SELECTION_GLYPH, &rec2);
@@ -147,19 +147,16 @@ auto PopplerGlibPage::selectTextRegion(XojPdfRectangle* rec, gdouble scale) -> s
     return recs;
 }
 
+auto PopplerGlibPage::selectTextRegionInArea(XojPdfRectangle& rec, double scale) -> std::vector<XojPdfRectangle> {
+    double aX = std::min(rec.x1, rec.x2);
+    double bX = std::max(rec.x1, rec.x2);
+    double aY = std::min(rec.y1, rec.y2);
+    double bY = std::max(rec.y1, rec.y2);
 
-
-
-auto PopplerGlibPage::selectTextRegionInArea(XojPdfRectangle* rec, double scale) -> std::vector<XojPdfRectangle> {
-    double aX = std::min(rec->x1, rec->x2);
-    double bX = std::max(rec->x1, rec->x2);
-    double aY = std::min(rec->y1, rec->y2);
-    double bY = std::max(rec->y1, rec->y2);
-
-    auto* rec2 = new XojPdfRectangle(aX, aY, bX, bY);
-
+    auto rec2 = XojPdfRectangle(aX, aY, bX, bY);
     auto recs = this->selectTextRegion(rec2, scale);
-    delete rec2;
+    // todo
+    /* delete &rec2; */
 
     for (auto r = recs.begin(); r != recs.end(); ) {
         // this rectangle is not intersecting with original selection box.
@@ -170,8 +167,6 @@ auto PopplerGlibPage::selectTextRegionInArea(XojPdfRectangle* rec, double scale)
 
         r->x1 = std::max(r->x1, aX);
         r->x2 = std::min(r->x2, bX);
-//        r->y1 = std::max(r->y1, aY);
-//        r->y2 = std::min(r->y2, bY);
         r++;
     }
 
