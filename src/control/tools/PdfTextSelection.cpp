@@ -29,11 +29,11 @@ PdfTextSelection::~PdfTextSelection() = default;
 auto PdfTextSelection::finalize(PageRef page) -> bool {
     this->isFinalized = true;
 
-    if (!this->selectPdfRecs()) {
-        return false;
+    if (this->selectPdfRecs()) {
+        this->popMenu();
+        this->view->rerenderPage();
+        return true;
     }
-    this->popMenu();
-    this->view->rerenderPage();
 
     return false;
 }

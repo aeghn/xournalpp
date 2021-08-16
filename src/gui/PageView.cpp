@@ -553,7 +553,13 @@ auto XojPageView::onButtonReleaseEvent(const PositionInputData& pos) -> bool {
     }
 
     if (this->pdfTextSelection) {
-        this->pdfTextSelection->finalize(this->page);
+        // if `finalize()' method return false, delete pdfTextSelection now, because we cann't
+        // do anything more, this logic should be changed when adding some interactions to PDF
+        // objects(like link or something else)
+        if (! this->pdfTextSelection->finalize(this->page)) {
+            delete this->pdfTextSelection;
+            this->pdfTextSelection = nullptr;
+        }
     }
 
     if (this->selection) {
