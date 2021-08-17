@@ -43,10 +43,12 @@ public:
 
     virtual std::vector<XojPdfRectangle> findText(std::string& text) = 0;
 
-    virtual std::string selectText(XojPdfRectangle& rec) = 0;
-    virtual std::string selectTextInArea(XojPdfRectangle& rec) = 0;
-    virtual std::vector<XojPdfRectangle> selectTextRegion(XojPdfRectangle& rec, double scale) = 0;
-    virtual std::vector<XojPdfRectangle> selectTextRegionInArea(XojPdfRectangle& rec, double scale) = 0;
+    virtual std::string selectHeadTailText(const XojPdfRectangle& rec) = 0;
+    virtual cairo_region_t* selectHeadTailTextRegion(const XojPdfRectangle& rec) = 0;
+    virtual void selectHeadTailFinally(const XojPdfRectangle& se, cairo_region_t** region,
+                                       std::vector<XojPdfRectangle>* recs, std::string* text) = 0;
+    virtual void selectAreaFinally(const XojPdfRectangle& rec, cairo_region_t** region,
+                                   std::vector<XojPdfRectangle>* recs, std::string* text) = 0;
 
     virtual int getPageId() = 0;
 

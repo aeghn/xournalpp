@@ -112,7 +112,7 @@ PdfTextSelectType PdfFloatingToolbox::getSelectType() {
 
 void PdfFloatingToolbox::switchSelectTypeCb(GtkButton* button, PdfFloatingToolbox* pft) {
     pft->switchSelectType();
-    pft->pdfTextSelection->selectPdfRecs();
+    pft->pdfTextSelection->select();
     pft->pdfTextSelection->getPageView()->rerenderPage();
 }
 
@@ -127,7 +127,6 @@ void PdfFloatingToolbox::switchSelectType() {
 void PdfFloatingToolbox::copyText() {
     GtkClipboard* clipboard = gtk_widget_get_clipboard(this->theMainWindow->getWindow(), GDK_SELECTION_CLIPBOARD);
 
-    this->pdfTextSelection->selectPdfText();
     const gchar* text = this->pdfTextSelection->getSelectedText().c_str();
 
     gtk_clipboard_set_text(clipboard, text, -1);

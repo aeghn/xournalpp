@@ -1,7 +1,10 @@
-#include <sstream>
 #include "PopplerGlibPage.h"
-#include <poppler.h>
+
+#include <sstream>
+
 #include <poppler-page.h>
+#include <poppler.h>
+
 #include "cairo.h"
 
 
@@ -83,7 +86,7 @@ auto PopplerGlibPage::findText(std::string& text) -> std::vector<XojPdfRectangle
     return findings;
 }
 
-auto PopplerGlibPage::selectText(XojPdfRectangle& points) -> std::string {
+auto PopplerGlibPage::selectHeadTailText(const XojPdfRectangle& points) -> std::string {
     PopplerRectangle rec = {
         .x1 = points.x1,
         .y1 = points.y1,
@@ -94,35 +97,7 @@ auto PopplerGlibPage::selectText(XojPdfRectangle& points) -> std::string {
     return poppler_page_get_selected_text(page, POPPLER_SELECTION_GLYPH, &rec);
 }
 
-auto PopplerGlibPage::selectTextInArea(XojPdfRectangle& points) -> std::string {
-    auto recs = this->selectTextRegionInArea(points, 1);
-
-    for (size_t i = 0; i < recs.size() - 1; i++) {
-        for (size_t j = i + 1; j < recs.size(); j++) {
-            auto& r1 = recs.at(i);
-            auto& r2 = recs.at(j);
-            // TODO need to consider other conditions
-            if (r1.y2 > r2.y1) {
-                auto t = r1.y2;
-                r1.y2 = r2.y1 - 1;
-                r2.y1 = t + 1;
-            }
-        }
-    }
-
-    std::ostringstream oss;
-
-    for (auto &item : recs) {
-        oss << this->selectText(item) << "\n";
-    }
-
-    recs.clear();
-    return oss.str();
-}
-
-auto PopplerGlibPage::selectTextRegion(XojPdfRectangle& rec, gdouble scale) -> std::vector<XojPdfRectangle> {
-    std::vector<XojPdfRectangle> recs;
-
+auto PopplerGlibPage::selectHeadTailTextRegion(const XojPdfRectangle& rec) -> cairo_region_t* {
     PopplerRectangle rec2 = {
         .x1 = rec.x1,
         .y1 = rec.y1,
@@ -130,45 +105,124 @@ auto PopplerGlibPage::selectTextRegion(XojPdfRectangle& rec, gdouble scale) -> s
         .y2 = rec.y2,
     };
 
-    GList* region = poppler_page_get_selection_region(page, 1.0, POPPLER_SELECTION_GLYPH, &rec2);
-
-    GList *l = nullptr;
-	for (l = region; l; l = g_list_next (l)) {
-		auto * r = (PopplerRectangle *)l->data;
-        
-        recs.emplace_back(std::min(r->x1, r->x2),
-            std::min(r->y1, r->y2),
-            std::max(r->x1, r->x2),
-            std::max(r->y1, r->y2));
-    }
-
-	poppler_page_selection_region_free(region);
-
-    return recs;
+    return poppler_page_get_selected_region(page, 1.0, POPPLER_SELECTION_GLYPH, &rec2);
 }
 
-auto PopplerGlibPage::selectTextRegionInArea(XojPdfRectangle& rec, double scale) -> std::vector<XojPdfRectangle> {
-    double aX = std::min(rec.x1, rec.x2);
-    double bX = std::max(rec.x1, rec.x2);
-    double aY = std::min(rec.y1, rec.y2);
-    double bY = std::max(rec.y1, rec.y2);
+void PopplerGlibPage::selectHeadTailFinally(const XojPdfRectangle& rec, cairo_region_t** region,
+    std::vector<XojPdfRectangle>* recs, std::string* text) {
+    recs->clear();
+    text->clear();
 
-    auto rec2 = XojPdfRectangle(aX, aY, bX, bY);
-    auto recs = this->selectTextRegion(rec2, scale);
-    // todo
-    /* delete &rec2; */
+    *region = this->selectHeadTailTextRegion(rec);
+    if (cairo_region_is_empty(*region)) return;
 
-    for (auto r = recs.begin(); r != recs.end(); ) {
-        // this rectangle is not intersecting with original selection box.
-        if (r->x1 > bX || r->x2 < aX || r->y1 > bY || r->y2 < aY) {
-            r = recs.erase(r);
-            continue;
+    *text = this->selectHeadTailText(rec);
+    PopplerRectangle area = {
+        .x1 = rec.x1,
+        .y1 = rec.y1,
+        .x2 = rec.x2,
+        .y2 = rec.y2,
+    };
+
+    // [2021-08-18] this part is come from:
+    // https://gitlab.freedesktop.org/poppler/poppler/-/blob/master/glib/demo/annots.c
+    PopplerRectangle* pRects;
+    guint rectNums;
+    if (! poppler_page_get_text_layout_for_area(this->page, &area, &pRects, &rectNums)) return;
+    auto r = PopplerRectangle {G_MAXDOUBLE, G_MAXDOUBLE, G_MINDOUBLE, G_MINDOUBLE};
+    
+    for (int i = 0; i < rectNums; i++) {
+        /* Check if the rectangle belongs to the same line.
+           On a new line, start a new target rectangle.
+           On the same line, make an union of rectangles at
+           the same line */
+        if (std::abs(r.y2 - pRects[i].y2) > 0.0001) {
+            if (i > 0)
+                recs->emplace_back(r.x1, r.y1, r.x2, r.y2);
+            r.x1 = pRects[i].x1;
+            r.y1 = pRects[i].y1;
+            r.x2 = pRects[i].x2;
+            r.y2 = pRects[i].y2;
+        } else {
+            r.x1 = std::min(r.x1, pRects[i].x1);
+            r.y1 = std::min(r.y1, pRects[i].y1);
+            r.x2 = std::max(r.x2, pRects[i].x2);
+            r.y2 = std::max(r.y2, pRects[i].y2);
         }
+    }
+    recs->emplace_back(r.x1, r.y1, r.x2, r.y2);
+}
 
-        r->x1 = std::max(r->x1, aX);
-        r->x2 = std::min(r->x2, bX);
-        r++;
+void PopplerGlibPage::selectAreaFinally(const XojPdfRectangle& rec, cairo_region_t** region,
+    std::vector<XojPdfRectangle>* recs, std::string* text) {
+    recs->clear();
+    text->clear();
+
+    std::ostringstream oss;
+
+    auto x1Box = std::min(rec.x1, rec.x2);
+    auto x2Box = std::max(rec.x1, rec.x2);
+    auto y1Box = std::min(rec.y1, rec.y2);
+    auto y2Box = std::max(rec.y1, rec.y2);
+
+    PopplerRectangle* pRects;
+    guint rectNums;
+    if (! poppler_page_get_text_layout(this->page, &pRects, &rectNums)) return;
+
+    auto chars = poppler_page_get_text(this->page);
+    auto r = PopplerRectangle {G_MAXDOUBLE, G_MAXDOUBLE, G_MINDOUBLE, G_MINDOUBLE};
+
+    int startIndex = -1;
+    for (int i = 0; i < rectNums; i++) {
+        if (pRects[i].x1 > x2Box || pRects[i].y1 > y2Box || pRects[i].x2 < x1Box || pRects[i].y2 < y1Box)
+            continue;
+        startIndex = i + 1;
+
+        r.x1 = pRects[i].x1;
+        r.y1 = pRects[i].y1;
+        r.x2 = pRects[i].x2;
+        r.y2 = pRects[i].y2;
+
+        break;
     }
 
-    return recs;
+    if (startIndex == -1 || startIndex >= rectNums) return;
+
+    for (int i = startIndex; i < rectNums; i++) {
+        if (pRects[i].x1 > x2Box || pRects[i].y1 > y2Box || pRects[i].x2 < x1Box || pRects[i].y2 < y1Box)
+            continue;
+
+        /* Check if the rectangle belongs to the same line.
+           On a new line, start a new target rectangle.
+           On the same line, make an union of rectangles at
+           the same line */
+        if (pRects[i].y2 - r.y2 > (pRects[i].y2 - pRects[i].y1)/2) {
+            recs->emplace_back(r.x1, r.y1, r.x2, r.y2);
+            r.x1 = pRects[i].x1;
+            r.y1 = pRects[i].y1;
+            r.x2 = pRects[i].x2;
+            r.y2 = pRects[i].y2;
+            oss << "\n" << chars[i];
+        } else {
+            r.x1 = std::min(r.x1, pRects[i].x1);
+            r.y1 = std::min(r.y1, pRects[i].y1);
+            r.x2 = std::max(r.x2, pRects[i].x2);
+            r.y2 = std::max(r.y2, pRects[i].y2);
+            oss << chars[i];
+        }
+    }
+    recs->emplace_back(r.x1, r.y1, r.x2, r.y2);
+
+    auto tmpRegion = cairo_region_create();
+    cairo_rectangle_int_t cRect;
+    for (const auto& item: *recs) {
+        cRect.x = static_cast<int>(item.x1);
+        cRect.y = static_cast<int>(item.y1);
+        cRect.width = static_cast<int>(item.x2 - item.x1);
+        cRect.height = static_cast<int>(item.y2 - item.y1);
+        cairo_region_union_rectangle(tmpRegion, &cRect);
+    }
+
+    *region = tmpRegion;
+    *text = oss.str();
 }

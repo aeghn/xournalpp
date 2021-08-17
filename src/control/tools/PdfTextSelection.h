@@ -31,8 +31,8 @@ public:
     virtual void paint(cairo_t* cr, GdkRectangle* rect, double zoom);
     virtual void currentPos(double x, double y);
 
-    bool selectPdfText();
-    bool selectPdfRecs();
+    bool selectHeadTailTextRegion();
+    void select();
     void popMenu();
     void clearSelection();
 
@@ -46,6 +46,7 @@ private:
 
     std::vector<XojPdfRectangle> selectedTextRecs;
     std::string selectedText;
+    cairo_region_t* selectedTextRegion = nullptr;
 
     double sx;
     double sy;

@@ -1,4 +1,5 @@
 #include "PdfTextSelection.h"
+
 #include "control/Control.h"
 
 PdfTextSelection::PdfTextSelection(double x, double y, XojPageView* view) {
@@ -29,7 +30,9 @@ PdfTextSelection::~PdfTextSelection() = default;
 auto PdfTextSelection::finalize(PageRef page) -> bool {
     this->isFinalized = true;
 
-    if (this->selectPdfRecs()) {
+    this->select();
+
+    if (!this->selectedTextRecs.empty()) {
         this->popMenu();
         this->view->rerenderPage();
         return true;
@@ -38,11 +41,23 @@ auto PdfTextSelection::finalize(PageRef page) -> bool {
     return false;
 }
 
+void PdfTextSelection::select() {
+    auto se = XojPdfRectangle{sx, sy, ex, ey};
+    auto type = this->view->getXournal()->getControl()->getWindow()->pdfFloatingToolBox->getSelectType();
+    if (type == PdfTextSelectType::SELECT_HEAD_TAIL) {
+        this->pdf->selectHeadTailFinally(se, &this->selectedTextRegion, &this->selectedTextRecs, &this->selectedText);
+    } else {
+        this->pdf->selectAreaFinally(se, &this->selectedTextRegion, &this->selectedTextRecs, &this->selectedText);
+    }
+}
+
 void PdfTextSelection::popMenu() {
     if (this->selectedTextRecs.empty()) {
         return;
     }
+
     auto zoom = this->view->getXournal()->getZoom();
+
     int wx = 0, wy = 0;
     GtkWidget* widget = this->view->getXournal()->getWidget();
     gtk_widget_translate_coordinates(widget, gtk_widget_get_toplevel(widget), 0, 0, &wx, &wy);
@@ -53,91 +68,64 @@ void PdfTextSelection::popMenu() {
 }
 
 void PdfTextSelection::paint(cairo_t* cr, GdkRectangle* rect, double zoom) {
-    if (this->selectedTextRecs.empty()) return;
+    if (this->pdf) {
+        GdkRGBA selectionColor = view->getSelectionColor();
+        auto applied = GdkRGBA{selectionColor.red, selectionColor.green, selectionColor.blue, 0.3};
 
-    cairo_region_t *region = cairo_region_create();
+        auto type = this->view->getXournal()->getControl()->getWindow()->pdfFloatingToolBox->getSelectType();
+        if (this->isFinalized || type == PdfTextSelectType::SELECT_HEAD_TAIL) {
+            if (!this->selectedTextRegion || cairo_region_is_empty(this->selectedTextRegion))
+                return;
 
-    for(auto & xojRec: this->selectedTextRecs) {
-        cairo_rectangle_int_t crRect;
+            gdk_cairo_region(cr, this->selectedTextRegion);
+            gdk_cairo_set_source_rgba(cr, &applied);
+            cairo_fill(cr);
 
-        int aX = std::min(xojRec.x1, xojRec.x2);
-        int bX = std::max(xojRec.x1, xojRec.x2);
+            // cairo_region_destroy(this->selectedTextRegion);
+            // this->selectedTextRegion = nullptr;
+        } else {
+            cairo_set_line_width(cr, 1 / zoom);
+            gdk_cairo_set_source_rgba(cr, &selectionColor);
 
-        int aY = std::min(xojRec.y1, xojRec.y2);
-        int bY = std::max(xojRec.y1, xojRec.y2);
+            int aX = std::min(this->sx, this->ex);
+            int bX = std::max(this->sx, this->ex);
 
-        crRect.x = (gint) ((aX * 1) + 0.5);
-        crRect.y = (gint) ((aY * 1) + 0.5);
-        crRect.width  = (gint) ((bX * 1) + 0.5) - crRect.x;
-        crRect.height = (gint) ((bY * 1) + 0.5) - crRect.y;
+            int aY = std::min(this->sy, this->ey);
+            int bY = std::max(this->sy, this->ey);
 
-        cairo_region_union_rectangle (region, &crRect);
+            cairo_move_to(cr, aX, aY);
+            cairo_line_to(cr, bX, aY);
+            cairo_line_to(cr, bX, bY);
+            cairo_line_to(cr, aX, bY);
+            cairo_close_path(cr);
+            cairo_stroke_preserve(cr);
+            gdk_cairo_set_source_rgba(cr, &applied);
+            cairo_fill(cr);
+        }
     }
-
-    GdkRGBA selectionColor = view->getSelectionColor();
-    auto applied = GdkRGBA{selectionColor.red, selectionColor.green, selectionColor.blue, 0.3};
-    gdk_cairo_region(cr, region);
-    gdk_cairo_set_source_rgba(cr, &applied);
-    cairo_fill(cr);
-    cairo_region_destroy(region);
 }
 
 void PdfTextSelection::currentPos(double x, double y) {
     this->ex = x;
     this->ey = y;
 
-    this->selectPdfRecs();
-
-    if (this->selectedTextRecs.empty()) return;
-
-    double x1Box = this->selectedTextRecs.at(0).x1;
-    double x2Box = this->selectedTextRecs.at(0).x2;
-    double y1Box = this->selectedTextRecs.at(0).y1;
-    double y2Box = this->selectedTextRecs.at(0).y2;
-    for (const auto& item: this->selectedTextRecs) {
-        x1Box = std::min(item.x1, x1Box);
-        x2Box = std::max(item.x2, x2Box);
-        y1Box = std::min(item.y1, y1Box);
-        y2Box = std::max(item.y2, y2Box);
-    }
-    
-    this->view->repaintArea(x1Box - 20, y1Box - 20, x2Box + 20, y2Box + 20);
-}
-
-auto PdfTextSelection::selectPdfText() -> bool {
-    this->selectedText.clear();
-
-    auto se = XojPdfRectangle{sx, sy, ex, ey};
-
     if (this->pdf) {
         auto type = this->view->getXournal()->getControl()->getWindow()->pdfFloatingToolBox->getSelectType();
         if (type == PdfTextSelectType::SELECT_HEAD_TAIL) {
-            this->selectedText = this->pdf->selectText(se);
+            this->selectHeadTailTextRegion();
         } else {
-            this->selectedText = this->pdf->selectTextInArea(se);
+            // TODO maybe we should do something here
         }
-    } else {
-        return false;
     }
 
-    return !this->selectedText.empty();
+    this->view->repaintPage();
 }
 
-auto PdfTextSelection::selectPdfRecs() -> bool {
-    this->selectedTextRecs.clear();
-
+auto PdfTextSelection::selectHeadTailTextRegion() -> bool {
     auto se = XojPdfRectangle{sx, sy, ex, ey};
+    this->selectedTextRegion = this->pdf->selectHeadTailTextRegion(se);
 
-    if (this->pdf) {
-        auto type = this->view->getXournal()->getControl()->getWindow()->pdfFloatingToolBox->getSelectType();
-        if (type == PdfTextSelectType::SELECT_HEAD_TAIL) {
-            this->selectedTextRecs = this->pdf->selectTextRegion(se, 1);
-        } else {
-            this->selectedTextRecs = this->pdf->selectTextRegionInArea(se, 1);
-        }
-    }
-
-    return !this->selectedTextRecs.empty();
+    return !cairo_region_is_empty(this->selectedTextRegion);
 }
 
 const std::vector<XojPdfRectangle>& PdfTextSelection::getSelectedTextRecs() const { return selectedTextRecs; }
