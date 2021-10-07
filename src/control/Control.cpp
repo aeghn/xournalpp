@@ -360,6 +360,8 @@ void Control::actionPerformed(ActionType type, ActionGroup group, GdkEvent* even
         return;
     }
 
+    this->getWindow()->pdfFloatingToolBox->postAction();
+
     switch (type) {
             // Menu File
         case ACTION_NEW:
